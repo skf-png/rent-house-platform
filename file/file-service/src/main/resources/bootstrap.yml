@@ -6,10 +6,10 @@ spring:
   cloud:
     nacos:
       discovery:           # Nacos服务发现配置
-        namespace: 315ee259-7aee-47b0-b74e-acf7420f00e7  # 命名空间（关联环境变量）
+        namespace: 92d7baa7-5f7f-4d19-8a3d-70149c11f5fb  # 命名空间（关联环境变量）
         server-addr: 8.140.214.12:8848           # Nacos地址（环境变量）
       config:              # Nacos配置中心配置
-        namespace: 315ee259-7aee-47b0-b74e-acf7420f00e7
+        namespace: 92d7baa7-5f7f-4d19-8a3d-70149c11f5fb
         server-addr: 8.140.214.12:8848
         shared-configs:
         file-extension: yaml  # 配置文件格式为yaml
