@@ -1,0 +1,16 @@
+# Maven/Gradle 构建产物
+target/
+# IDE 配置文件（如果用 IDEA/Eclipse，也建议忽略）
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+# 日志文件
+logs/
+*.log
+# 临时文件
+*.tmp
+*.bak
+# 系统隐藏文件
+.DS_Store
