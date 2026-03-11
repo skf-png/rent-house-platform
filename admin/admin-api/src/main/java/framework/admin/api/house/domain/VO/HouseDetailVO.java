@@ -1,21 +1,21 @@
-package framework.admin.service.house.domain.DTO;
+package framework.admin.api.house.domain.VO;
 
 import framework.admin.api.house.domain.DTO.DeviceDTO;
 import framework.admin.api.house.domain.DTO.TagDTO;
-import framework.admin.api.house.domain.VO.HouseDetailVO;
 import lombok.Data;
-import org.springframework.beans.BeanUtils;
 
+import java.io.Serializable;
 import java.util.List;
 
+/**
+ * @author: yibo
+ */
 @Data
-public class HouseDTO {
+public class HouseDetailVO implements Serializable {
     private Long houseId;
-    // 房东信息
     private Long userId;
     private String nickName;
     private String avatar;
-    // 房屋基本信息
     private String title;
     private String rentType;
     private Integer floor;
@@ -26,16 +26,10 @@ public class HouseDTO {
     private Double area;
     private Double price;
     private String intro;
-
-    // 设备列表
     private List<DeviceDTO> devices;
-    // 标签列表
     private List<TagDTO> tags;
-
     private String headImage;
     private List<String> images;
-
-    // 位置信息
     private Long cityId;
     private String cityName;
     private Long regionId;
@@ -44,14 +38,6 @@ public class HouseDTO {
     private String detailAddress;
     private Double longitude;
     private Double latitude;
-
-    // 状态信息
     private String status;
     private String rentTimeCode;
-
-    public HouseDetailVO convertToVO() {
-        HouseDetailVO houseDetailVO = new HouseDetailVO();
-        BeanUtils.copyProperties(this, houseDetailVO);
-        return houseDetailVO;
-    }
 }

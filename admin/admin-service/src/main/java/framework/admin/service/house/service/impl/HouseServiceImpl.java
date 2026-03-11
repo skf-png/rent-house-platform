@@ -2,6 +2,7 @@ package framework.admin.service.house.service.impl;
 
 import com.alibaba.nacos.common.utils.CollectionUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import framework.admin.api.appuser.domain.DTO.AppUserDTO;
 import framework.admin.api.config.domain.DTO.DicDataDTO;
 import framework.admin.api.house.domain.DTO.DeviceDTO;
@@ -9,6 +10,8 @@ import framework.admin.api.house.domain.DTO.TagDTO;
 import framework.admin.service.config.service.DicService;
 import framework.admin.service.house.domain.DTO.HouseAddOrEditReqDTO;
 import framework.admin.service.house.domain.DTO.HouseDTO;
+import framework.admin.service.house.domain.DTO.HouseDescDTO;
+import framework.admin.service.house.domain.DTO.HouseListReqDTO;
 import framework.admin.service.house.domain.entity.*;
 import framework.admin.service.house.domain.enums.HouseStatusEnum;
 import framework.admin.service.house.mapper.*;
@@ -19,8 +22,10 @@ import framework.admin.service.map.service.MapService;
 import framework.admin.service.user.domain.entity.AppUser;
 import framework.admin.service.user.mapper.AppUserMapper;
 import framework.admin.service.user.service.AppUserService;
+import framework.core.DTO.BasePageDTO;
 import framework.core.utils.BeanCopyUtil;
 import framework.core.utils.JsonUtils;
+import framework.domain.ResultCode;
 import framework.domain.ServiceException;
 import framework.redis.service.RedisService;
 import jakarta.validation.constraints.NotNull;
@@ -33,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -152,6 +158,111 @@ public class HouseServiceImpl implements HouseService {
         //5. 缓存完整的House信息
         cacheHouse(house.getId());
         return 0L;
+    }
+
+    /**
+     * 根据houseId获取房源详情
+     * @param houseId
+     * @return
+     */
+    @Override
+    public HouseDTO detail(Long houseId) {
+        //1. 参数校验
+        if (houseId == null || houseId < 10000) {
+            log.error("查询id非法！id{}", houseId);
+            return null;
+        }
+
+        //2. 查询redis，判断是否存在
+        HouseDTO houseDTO = getCacheHouseDTO(houseId);
+
+        //3. 找到返回，找不到查询mysql
+        if (houseDTO != null) {
+            return houseDTO;
+        }
+
+        houseDTO = getHouseDTObyId(houseId);
+
+        //4. 判断mysql是否存在，不存在缓存一个空对象
+        if (houseDTO == null) {
+            cacheNullHouse(houseId, 60l);
+        }
+
+        //5. 存在缓存redis
+        cacheHouse(houseId);
+
+        return houseDTO;
+    }
+
+    @Override
+    public BasePageDTO<HouseDescDTO> list(HouseListReqDTO houseListReqDTO) {
+        //1. 参数校验
+        if (houseListReqDTO == null) {
+            throw new ServiceException(ResultCode.INVALID_PARA);
+        }
+        //2. 构建查询
+        LambdaQueryWrapper<House> queryWrapper = new LambdaQueryWrapper<>();
+        if (houseListReqDTO.getHouseId() != null) {
+            queryWrapper.eq(House::getId, houseListReqDTO.getHouseId());
+        }
+        if (houseListReqDTO.getTitle() != null) {
+            queryWrapper.like(House::getTitle, houseListReqDTO.getTitle());
+        }
+        if (houseListReqDTO.getCityId() != null) {
+            queryWrapper.eq(House::getCityId, houseListReqDTO.getCityId());
+        }
+        if (houseListReqDTO.getRentType() != null) {
+            queryWrapper.eq(House::getRentType, houseListReqDTO.getRentType());
+        }
+        if (houseListReqDTO.getCommunityName() != null) {
+            queryWrapper.like(House::getCommunityName, houseListReqDTO.getCommunityName());
+        }
+        //3. 查询结果
+        Page<House> housePage = houseMapper.selectPage(new Page<House>(houseListReqDTO.getPageNo(),
+                houseListReqDTO.getPageSize()), queryWrapper);
+        //4. 返回结果
+        BasePageDTO<HouseDescDTO> basePageDTO = new BasePageDTO<>();
+        basePageDTO.setTotals(((int) housePage.getTotal()));
+        basePageDTO.setTotalPages((int) housePage.getPages());
+
+        List<HouseDescDTO> collect = housePage.getRecords().stream().map(
+                        house -> {
+                            HouseDescDTO houseDescDTO = new HouseDescDTO();
+                            BeanUtils.copyProperties(house, houseDescDTO);
+                            houseDescDTO.setPrice(house.getPrice().doubleValue());
+                            HouseStatus houseStatus = houseStatusMapper.selectOne(
+                                    new LambdaQueryWrapper<HouseStatus>().eq(HouseStatus::getHouseId, house.getId())
+                            );
+                            BeanUtils.copyProperties(houseStatus, houseDescDTO);
+                            return houseDescDTO;
+                        }
+                )
+                .collect(Collectors.toList());
+
+        basePageDTO.setList(collect);
+        return basePageDTO;
+    }
+
+    /**
+     * 从缓存获取houseDTO
+     * @param houseId
+     * @return
+     */
+    private HouseDTO getCacheHouseDTO(Long houseId) {
+        //参数校验
+        if  (houseId == null || houseId < 10000) {
+            log.error("houseId不合法id{}", houseId);
+            return null;
+        }
+
+        //查询
+        try {
+            HouseDTO cacheObject = redisService.getCacheObject(HOUSE_PREFIX + houseId, HouseDTO.class);
+            return cacheObject;
+        } catch (Exception e) {
+            log.error("缓存查询houseId失败,houseId:{}", houseId, e);
+        }
+        return null;
     }
 
     /**
@@ -296,6 +407,19 @@ public class HouseServiceImpl implements HouseService {
             log.error("缓存房源完整信息时发生异常，houseDTO:{}", JsonUtils.ObjectToString(houseDTO), e);
             // 对于房源完整信息，是否存在于redis，不需要强一致性。
             // 因为C端查询时，如果redis不存在，可以通过查MySQL获取到数据，让后再放入Redis。
+        }
+    }
+
+    private void cacheNullHouse(Long houseId, long timeout) {
+        if (null == houseId) {
+            log.error("房源信息为空");
+            return;
+        }
+        try {
+            redisService.setCacheObject(HOUSE_PREFIX + houseId, new HouseDTO(),
+                    timeout, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.error("房源信息缓存失败, houseId:{}", houseId, e);
         }
     }
 
