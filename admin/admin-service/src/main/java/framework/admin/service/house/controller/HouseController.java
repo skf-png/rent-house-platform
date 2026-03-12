@@ -1,10 +1,7 @@
 package framework.admin.service.house.controller;
 
 import framework.admin.api.house.domain.VO.HouseDetailVO;
-import framework.admin.service.house.domain.DTO.HouseAddOrEditReqDTO;
-import framework.admin.service.house.domain.DTO.HouseDTO;
-import framework.admin.service.house.domain.DTO.HouseDescDTO;
-import framework.admin.service.house.domain.DTO.HouseListReqDTO;
+import framework.admin.service.house.domain.DTO.*;
 import framework.admin.service.house.domain.VO.HouseVO;
 import framework.admin.service.house.service.HouseService;
 import framework.core.DTO.BasePageDTO;
@@ -56,5 +53,14 @@ public class HouseController {
         BasePageVO<HouseVO> result = new BasePageVO<>();
         BeanUtils.copyProperties(houseDescList, result);
         return R.success(result);
+    }
+
+    /**
+     * 更新房源状态
+     */
+    @PostMapping("/status/edit")
+    public R<?> editStatus(@Validated @RequestBody HouseStatusEditReqDTO houseStatusEditReqDTO) {
+        houseService.editStatus(houseStatusEditReqDTO);
+        return R.success();
     }
 }

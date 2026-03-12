@@ -1,6 +1,8 @@
 package framework.admin.service.house.service.impl;
 
 import com.alibaba.nacos.common.utils.CollectionUtils;
+import com.alibaba.nacos.common.utils.StringUtils;
+import com.alibaba.nacos.common.utils.UuidUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import framework.admin.api.appuser.domain.DTO.AppUserDTO;
@@ -8,10 +10,7 @@ import framework.admin.api.config.domain.DTO.DicDataDTO;
 import framework.admin.api.house.domain.DTO.DeviceDTO;
 import framework.admin.api.house.domain.DTO.TagDTO;
 import framework.admin.service.config.service.DicService;
-import framework.admin.service.house.domain.DTO.HouseAddOrEditReqDTO;
-import framework.admin.service.house.domain.DTO.HouseDTO;
-import framework.admin.service.house.domain.DTO.HouseDescDTO;
-import framework.admin.service.house.domain.DTO.HouseListReqDTO;
+import framework.admin.service.house.domain.DTO.*;
 import framework.admin.service.house.domain.entity.*;
 import framework.admin.service.house.domain.enums.HouseStatusEnum;
 import framework.admin.service.house.mapper.*;
@@ -25,13 +24,17 @@ import framework.admin.service.user.service.AppUserService;
 import framework.core.DTO.BasePageDTO;
 import framework.core.utils.BeanCopyUtil;
 import framework.core.utils.JsonUtils;
+import framework.core.utils.TimestampUtils;
 import framework.domain.ResultCode;
 import framework.domain.ServiceException;
 import framework.redis.service.RedisService;
+import framework.redis.service.RedissonLockService;
 import jakarta.validation.constraints.NotNull;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,12 +68,16 @@ public class HouseServiceImpl implements HouseService {
     private RedisService redisService;
     @Autowired
     private AppUserMapper appUserMapper;
+    @Autowired
+    private RedissonLockService redissonLockService;
 
 
     // 城市房源映射 key 前缀
     private static final String CITY_HOUSE_PREFIX = "house:list:";
     // 城市完整信息 key 前缀
     private static final String HOUSE_PREFIX = "house:";
+    // 定时任务分布式锁
+    private static final String LOCK_KEY = "scheduledTask:lock";
 
     @Override
     @Transactional
@@ -241,6 +248,148 @@ public class HouseServiceImpl implements HouseService {
 
         basePageDTO.setList(collect);
         return basePageDTO;
+    }
+
+    /**
+     * 手动修改房源状态
+     * @param houseStatusEditReqDTO
+     */
+    @Override
+    public void editStatus(HouseStatusEditReqDTO houseStatusEditReqDTO) {
+        //1. 房源id是否存在
+        House house = houseMapper.selectOne(new LambdaQueryWrapper<House>().eq(House::getId, houseStatusEditReqDTO.getHouseId()));
+        if (house == null) {
+            throw new ServiceException(ResultCode.INVALID_PARA.getCode(), "房源id不存在");
+        }
+
+        //2. 状态是否存在
+        HouseStatus houseStatus = houseStatusMapper.selectOne(new  LambdaQueryWrapper<HouseStatus>().eq(HouseStatus::getHouseId, house.getId()));
+        if (houseStatus == null) {
+            throw new ServiceException("房源状态异常，无法修改");
+        }
+
+        //3. 检查枚举类是否正确
+        HouseStatusEnum status = HouseStatusEnum.getByName(houseStatusEditReqDTO.getStatus());
+        if (status == null) {
+            throw new ServiceException("状态参数异常status");
+        }
+        houseStatus.setStatus(status.name());
+
+        //4. 如果是要出租的状态需要进行特殊处理
+        if (HouseStatusEnum.RENTING.name().equals(houseStatus.getStatus())) {
+
+            // 校验是否传了出租时长码
+            if(StringUtils.isEmpty(houseStatusEditReqDTO.getRentTimeCode())) {
+                throw new ServiceException("出租时长不能为空，无法修改状态！");
+            }
+
+            //4.1 设置租房起始时间和结束时间
+            houseStatus.setRentStartTime(TimestampUtils.getCurrentMillis());
+            houseStatus.setRentTimeCode(houseStatusEditReqDTO.getRentTimeCode());
+            switch (houseStatusEditReqDTO.getRentTimeCode()) {
+                case "one_year" -> houseStatus.setRentEndTime(TimestampUtils.getYearLaterMillis(1l));
+                case "half_year" -> houseStatus.setRentEndTime(TimestampUtils.getMonthsLaterMillis(6l));
+                case "thirty_seconds" -> houseStatus.setRentEndTime(TimestampUtils.getSecondsLaterMillis(30l));
+                default -> throw new ServiceException("出租时长有误");
+            }
+        }
+
+        houseStatusMapper.updateById(houseStatus);
+        //5. 更新缓存
+        cacheHouse(house.getId());
+
+    }
+
+//    /**
+//     * 定时修改房源状态（每天0:00）
+//     */
+//    @Scheduled(cron = "0 0 0 * * *")
+////    @Scheduled(cron = "*/10 * * * * *")
+//    public void scheduledHouseStatus() {
+//
+//        // 生成一个uuid来作为锁的唯一标识
+//        String value = UuidUtils.generateUuid();
+//        log.info("定时任务开始执行");
+//
+//        // 加锁
+//        try {
+//            // 获取锁
+//            Boolean lock = redisService.setCacheIfAbsent(LOCK_KEY, value);
+//
+//            // 如果可以获得继续进行
+//            if (lock) {
+//                // 从数据库中获取所有出租中的数据
+//                List<HouseStatus> houseStatuses = houseStatusMapper.selectList(
+//                        new LambdaQueryWrapper<HouseStatus>()
+//                                .eq(HouseStatus::getStatus, HouseStatusEnum.RENTING.name())
+//                );
+//                // 对数据进行判断
+//                List<HouseStatus> needChangeStatus = houseStatuses.stream()
+//                        .filter(houseStatus -> houseStatus.getRentEndTime() != null
+//                                && TimestampUtils.calculateDifferenceMillis(TimestampUtils.getCurrentMillis()
+//                                , houseStatus.getRentEndTime()) < 0)
+//                        .collect(Collectors.toList());
+//                // 筛选出来的结果进行更新
+//                for (HouseStatus changeStatus : needChangeStatus) {
+//                    HouseStatusEditReqDTO houseStatusEditReqDTO = new HouseStatusEditReqDTO();
+//                    houseStatusEditReqDTO.setHouseId(changeStatus.getHouseId());
+//                    houseStatusEditReqDTO.setStatus(HouseStatusEnum.UP.name());
+//                    editStatus(houseStatusEditReqDTO);
+//                    log.info("houseId{}状态已被自动修改", changeStatus.getHouseId());
+//                }
+//            } else {
+//                log.info("定时任务已经被其他服务器执行");
+//            }
+//        } finally {
+//            // 解锁
+//            redisService.cad(LOCK_KEY, value);
+//        }
+//    }
+
+    /**
+     * 定时修改房源状态（每天0:00）
+     */
+    @Scheduled(cron = "0 0 0 * * *")
+//    @Scheduled(cron = "*/10 * * * * *")
+    public void scheduledHouseStatus() {
+
+        // 生成一个uuid来作为锁的唯一标识
+        log.info("定时任务开始执行");
+
+        // 获取锁
+        RLock lock = redissonLockService.acquire(LOCK_KEY, -1);
+        if (lock == null) {
+            log.info("定时任务已经被其他服务器执行");
+            return;
+        }
+
+        try {
+             // 如果可以获得继续进行
+            // 从数据库中获取所有出租中的数据
+            List<HouseStatus> houseStatuses = houseStatusMapper.selectList(
+                    new LambdaQueryWrapper<HouseStatus>()
+                            .eq(HouseStatus::getStatus, HouseStatusEnum.RENTING.name())
+            );
+            // 对数据进行判断
+            List<HouseStatus> needChangeStatus = houseStatuses.stream()
+                    .filter(houseStatus -> houseStatus.getRentEndTime() != null
+                            && TimestampUtils.calculateDifferenceMillis(TimestampUtils.getCurrentMillis()
+                            , houseStatus.getRentEndTime()) < 0)
+                    .collect(Collectors.toList());
+            // 筛选出来的结果进行更新
+            for (HouseStatus changeStatus : needChangeStatus) {
+                HouseStatusEditReqDTO houseStatusEditReqDTO = new HouseStatusEditReqDTO();
+                houseStatusEditReqDTO.setHouseId(changeStatus.getHouseId());
+                houseStatusEditReqDTO.setStatus(HouseStatusEnum.UP.name());
+                editStatus(houseStatusEditReqDTO);
+                log.info("houseId{}状态已被自动修改", changeStatus.getHouseId());
+            }
+        } finally {
+            // 解锁,需要判断是否是自己的线程
+            if (lock.isHeldByCurrentThread() && lock.isLocked()) {
+                redissonLockService.releaseLock(lock);
+            }
+        }
     }
 
     /**

@@ -1,10 +1,7 @@
 package framework.admin.service.house.service;
 
 
-import framework.admin.service.house.domain.DTO.HouseAddOrEditReqDTO;
-import framework.admin.service.house.domain.DTO.HouseDTO;
-import framework.admin.service.house.domain.DTO.HouseDescDTO;
-import framework.admin.service.house.domain.DTO.HouseListReqDTO;
+import framework.admin.service.house.domain.DTO.*;
 import framework.core.DTO.BasePageDTO;
 
 public interface HouseService {
@@ -13,4 +10,6 @@ public interface HouseService {
     HouseDTO detail(Long houseId);
 
     BasePageDTO<HouseDescDTO> list(HouseListReqDTO houseListReqDTO);
+
+    void editStatus(HouseStatusEditReqDTO houseStatusEditReqDTO);
 }
