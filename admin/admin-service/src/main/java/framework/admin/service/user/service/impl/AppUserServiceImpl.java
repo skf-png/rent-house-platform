@@ -138,6 +138,7 @@ public class AppUserServiceImpl implements AppUserService {
         //3. 发送广播信息
         AppUserDTO appUserDTO = new AppUserDTO();
         BeanUtils.copyProperties(appUser, appUserDTO);
+        appUserDTO.setUserId(appUser.getId());
         try {
             rabbitTemplate.convertAndSend(RabbitConfig.EXCHANGE_NAME, "",  appUserDTO);
         } catch (Exception e) {

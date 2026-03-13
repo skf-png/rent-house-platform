@@ -300,6 +300,27 @@ public class HouseServiceImpl implements HouseService {
 
     }
 
+    /**
+     * 根据userId获取房源信息
+     * @param userId
+     * @return
+     */
+    @Override
+    public List<Long> listByUserId(Long userId) {
+        if (userId == null) {
+            return List.of();
+        }
+
+        List<House> houses = houseMapper.selectList(new LambdaQueryWrapper<House>().eq(House::getUserId, userId));
+
+        List<Long> res = houses.stream().map(house -> {
+            return house.getId();
+
+        }).collect(Collectors.toList());
+
+        return res;
+    }
+
 //    /**
 //     * 定时修改房源状态（每天0:00）
 //     */
@@ -418,7 +439,8 @@ public class HouseServiceImpl implements HouseService {
      * 缓存house信息
      * @param id
      */
-    private void cacheHouse(Long id) {
+    @Override
+    public void cacheHouse(Long id) {
         if (id == null) {
              log.error("id为空");
              return;
@@ -431,6 +453,34 @@ public class HouseServiceImpl implements HouseService {
         }
 
         cacheHouse(houseDTO);
+    }
+
+    /**
+     * 刷新redis数据
+     */
+    @Override
+    public void refreshHouseIds() {
+        //1. 查询所有二级城市
+        List<SysRegion> sysRegions = regionMapper.selectList(new LambdaQueryWrapper<SysRegion>().eq(
+                SysRegion::getLevel, 2
+        ));
+        for (SysRegion sysRegion : sysRegions) {
+
+            Long cityId = sysRegion.getId();
+
+            //2. 删除所有城市redis缓存
+            redisService.deleteObject(CITY_HOUSE_PREFIX + cityId);
+
+            //3. 从mysql查询所有城市的房源信息
+            List<CityHouse> cityHouses = cityHouseMapper.selectList(new LambdaQueryWrapper<CityHouse>().eq(CityHouse::getCityId, cityId));
+
+            //4. 重新缓存redis
+            for (CityHouse cityHouse : cityHouses) {
+                cacheCityHouse(2, null, cityId, cityHouse.getHouseId());
+                cacheHouse(cityHouse.getHouseId());
+            }
+        }
+
     }
 
     /**

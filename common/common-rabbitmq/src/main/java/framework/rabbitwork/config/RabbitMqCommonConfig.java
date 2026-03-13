@@ -1,10 +1,15 @@
 package framework.rabbitwork.config;
 
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class RabbitMqCommonConfig {
@@ -21,6 +26,14 @@ public class RabbitMqCommonConfig {
         Jackson2JsonMessageConverter jackson2JsonMessageConverter = new Jackson2JsonMessageConverter();
         jackson2JsonMessageConverter.setClassMapper(defaultClassMapper);
         return jackson2JsonMessageConverter;
+    }
+
+    @Bean
+    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
+        RabbitTemplate template = new RabbitTemplate(connectionFactory);
+        // 关键：必须使用 JSON 转换器
+        template.setMessageConverter(new Jackson2JsonMessageConverter());
+        return template;
     }
 
 }

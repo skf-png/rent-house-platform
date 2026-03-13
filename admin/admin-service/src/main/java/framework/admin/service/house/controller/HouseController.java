@@ -63,4 +63,16 @@ public class HouseController {
         houseService.editStatus(houseStatusEditReqDTO);
         return R.success();
     }
+
+    /**
+     * 刷新所有缓存
+     */
+    /**
+     * 刷新房源缓存
+     **/
+    @GetMapping("/refresh")
+    public R<Void> refreshHouseIds() {
+        houseService.refreshHouseIds();
+        return R.success();
+    }
 }
