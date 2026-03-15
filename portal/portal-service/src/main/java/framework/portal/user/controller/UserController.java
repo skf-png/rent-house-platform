@@ -1,12 +1,12 @@
-package framework.portal.controller;
+package framework.portal.user.controller;
 
 import framework.admin.api.appuser.domain.DTO.UserEditReqDTO;
 import framework.domain.R;
 import framework.domain.domain.VO.TokenVO;
-import framework.portal.domain.DTO.CodeLoginDTO;
-import framework.portal.domain.DTO.WechatLoginDTO;
-import framework.portal.domain.VO.UserVo;
-import framework.portal.service.UserService;
+import framework.portal.user.domain.DTO.CodeLoginDTO;
+import framework.portal.user.domain.DTO.WechatLoginDTO;
+import framework.portal.user.domain.VO.UserVo;
+import framework.portal.user.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

@@ -1,4 +1,4 @@
-package framework.portal.domain.DTO;
+package framework.portal.user.domain.DTO;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

@@ -1,6 +1,6 @@
-package framework.portal.domain.DTO;
+package framework.portal.user.domain.DTO;
 
-import framework.portal.domain.VO.UserVo;
+import framework.portal.user.domain.VO.UserVo;
 import framework.security.domain.DTO.LoginUserDTO;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;

@@ -1,0 +1,16 @@
+package framework.portal.homepage.service;
+
+import framework.portal.homepage.domain.DTO.DictDataDTO;
+
+import java.util.List;
+import java.util.Map;
+
+public interface DictionaryService {
+    /**
+     * 根据字典类型查询字典数据列表
+     *
+     * @param types
+     * @return key: type  value: dataList
+     */
+    Map<String, List<DictDataDTO>> batchFindDictionaryDataByTypes(List<String> types);
+}

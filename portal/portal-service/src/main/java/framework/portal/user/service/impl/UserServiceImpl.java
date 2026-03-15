@@ -1,4 +1,4 @@
-package framework.portal.service.impl;
+package framework.portal.user.service.impl;
 
 import framework.admin.api.appuser.domain.DTO.UserEditReqDTO;
 import framework.admin.api.appuser.domain.VO.AppUserVo;
@@ -9,11 +9,11 @@ import framework.domain.R;
 import framework.domain.ResultCode;
 import framework.domain.ServiceException;
 import framework.message.service.CaptchaService;
-import framework.portal.domain.DTO.CodeLoginDTO;
-import framework.portal.domain.DTO.LoginDTO;
-import framework.portal.domain.DTO.UserDTO;
-import framework.portal.domain.DTO.WechatLoginDTO;
-import framework.portal.service.UserService;
+import framework.portal.user.domain.DTO.CodeLoginDTO;
+import framework.portal.user.domain.DTO.LoginDTO;
+import framework.portal.user.domain.DTO.UserDTO;
+import framework.portal.user.domain.DTO.WechatLoginDTO;
+import framework.portal.user.service.UserService;
 import framework.security.domain.DTO.LoginUserDTO;
 import framework.security.domain.DTO.TokenDTO;
 import framework.security.service.TokenService;

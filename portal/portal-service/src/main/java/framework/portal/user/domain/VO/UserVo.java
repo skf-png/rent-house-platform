@@ -1,4 +1,4 @@
-package framework.portal.domain.VO;
+package framework.portal.user.domain.VO;
 
 import framework.domain.domain.VO.LoginUserVO;
 import lombok.Data;
