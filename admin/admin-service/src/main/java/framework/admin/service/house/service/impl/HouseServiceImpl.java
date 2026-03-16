@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import framework.admin.api.appuser.domain.DTO.AppUserDTO;
 import framework.admin.api.config.domain.DTO.DicDataDTO;
 import framework.admin.api.house.domain.DTO.DeviceDTO;
+import framework.admin.api.house.domain.DTO.SearchHouseListReqDTO;
 import framework.admin.api.house.domain.DTO.TagDTO;
 import framework.admin.service.config.service.DicService;
 import framework.admin.service.house.domain.DTO.*;
@@ -15,6 +16,9 @@ import framework.admin.service.house.domain.entity.*;
 import framework.admin.service.house.domain.enums.HouseStatusEnum;
 import framework.admin.service.house.mapper.*;
 import framework.admin.service.house.service.HouseService;
+import framework.admin.service.house.service.filter.IHouseFilter;
+import framework.admin.service.house.service.strategy.ISortStrategy;
+import framework.admin.service.house.service.strategy.SortStrategyFactory;
 import framework.admin.service.map.domain.entity.SysRegion;
 import framework.admin.service.map.mapper.RegionMapper;
 import framework.admin.service.map.service.MapService;
@@ -39,8 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -70,6 +73,9 @@ public class HouseServiceImpl implements HouseService {
     private AppUserMapper appUserMapper;
     @Autowired
     private RedissonLockService redissonLockService;
+
+    @Autowired
+    private final Map<String, IHouseFilter> houseFilterMap = new HashMap<>();
 
 
     // 城市房源映射 key 前缀
@@ -481,6 +487,118 @@ public class HouseServiceImpl implements HouseService {
             }
         }
 
+    }
+
+    /**
+     * 查询房源，支持排序、筛选、分页
+     * @param searchHouseListReqDTO
+     * @return
+     */
+    @Override
+    public BasePageDTO<HouseDTO> searchList(SearchHouseListReqDTO searchHouseListReqDTO) {
+        // 获取城市下的所有房源
+        List<HouseDTO> houses = getCacheHouseListByCity(searchHouseListReqDTO.getCityId());
+
+        // 排序、筛选、分页
+        BasePageDTO<HouseDTO> res = filterHouse(houses, searchHouseListReqDTO);
+        return res;
+    }
+
+    /**
+     * 筛选、排序、分页
+     * @param houseDTOList
+     * @param searchHouseListReqDTO
+     * @return
+     */
+    private BasePageDTO<HouseDTO> filterHouse(List<HouseDTO> houseDTOList, SearchHouseListReqDTO searchHouseListReqDTO) {
+        // 筛选
+        List<HouseDTO> validHouseDTOList  = houseFilter(houseDTOList, searchHouseListReqDTO);
+
+        // 排序
+        validHouseDTOList = houseSort(validHouseDTOList, searchHouseListReqDTO);
+
+        // 分页
+        return housePage(validHouseDTOList, searchHouseListReqDTO);
+    }
+
+    /**
+     * 筛选房源
+     * @param houseDTOList
+     * @param searchHouseListReqDTO
+     * @return
+     */
+    private List<HouseDTO> houseFilter(List<HouseDTO> houseDTOList, SearchHouseListReqDTO searchHouseListReqDTO) {
+        return houseDTOList.stream().filter(
+                //过滤为true的
+                houseDTO -> houseFilterMap.values().stream().allMatch(
+                        // 都返回true，才true
+                        filter->{
+                            try {
+                                return filter.filter(houseDTO, searchHouseListReqDTO);
+                            } catch (Exception ex) {
+                                log.error(ex.getMessage(), ex);
+                                return false;
+                            }
+                        }
+                )
+        ).collect(Collectors.toList());
+    }
+
+    private List<HouseDTO> houseSort(List<HouseDTO> houseDTOList, SearchHouseListReqDTO searchHouseListReqDTO) {
+        ISortStrategy instance = SortStrategyFactory.getInstance(searchHouseListReqDTO.getSort());
+        return instance.sort(houseDTOList, searchHouseListReqDTO);
+    }
+
+    private BasePageDTO<HouseDTO> housePage(List<HouseDTO> houseDTOList, SearchHouseListReqDTO searchHouseListReqDTO) {
+        BasePageDTO<HouseDTO> basePageDTO = new BasePageDTO<>();
+        //1. 分页
+        List<HouseDTO> list = houseDTOList.stream().skip(searchHouseListReqDTO.getOffset())
+                .limit(searchHouseListReqDTO.getPageSize())
+                .collect(Collectors.toList());
+
+        //2. 组装
+        basePageDTO.setList(list);
+        basePageDTO.setTotals(houseDTOList.size());
+        basePageDTO.setTotalPages(
+                BasePageDTO.calculateTotalPages(houseDTOList.size(), searchHouseListReqDTO.getPageSize())
+        );
+
+        return basePageDTO;
+    }
+    
+    /**
+     * 获取城市id对应的house
+     * @param cityId
+     * @return
+     */
+    private List<HouseDTO> getCacheHouseListByCity(Long cityId) {
+        if (cityId == null) {
+            log.error("cityId不能为空");
+            return List.of();
+        }
+
+        // 从缓存中查询城市id对应的房源列表id
+        List<Long> houseIds = getCacheHouseIdsByCity(cityId);
+
+        //根据id查询house详情
+        List<HouseDTO> houses = new ArrayList<>();
+        for (Long houseId : houseIds) {
+            HouseDTO house = detail(houseId);
+            if (house != null) {
+                houses.add(house);
+            }
+        }
+
+        return houses;
+    }
+
+    private List<Long> getCacheHouseIdsByCity(Long cityId) {
+        if (cityId == null) {
+            return List.of();
+        }
+
+        List<Long> houseIds = redisService.getAllList(CITY_HOUSE_PREFIX + cityId, Long.class);
+        return houseIds;
     }
 
     /**

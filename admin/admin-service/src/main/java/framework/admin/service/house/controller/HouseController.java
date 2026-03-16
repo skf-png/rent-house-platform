@@ -1,10 +1,13 @@
 package framework.admin.service.house.controller;
 
+import framework.admin.api.house.domain.DTO.SearchHouseListReqDTO;
 import framework.admin.api.house.domain.VO.HouseDetailVO;
+import framework.admin.api.house.feign.HouseFeignClient;
 import framework.admin.service.house.domain.DTO.*;
 import framework.admin.service.house.domain.VO.HouseVO;
 import framework.admin.service.house.service.HouseService;
 import framework.core.DTO.BasePageDTO;
+import framework.core.utils.BeanCopyUtil;
 import framework.domain.R;
 import framework.domain.domain.VO.BasePageVO;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/house")
 @Slf4j
-public class HouseController {
+public class HouseController implements HouseFeignClient {
     @Autowired
     private HouseService houseService;
 
@@ -74,5 +77,15 @@ public class HouseController {
     public R<Void> refreshHouseIds() {
         houseService.refreshHouseIds();
         return R.success();
+    }
+
+    @Override
+    public R<BasePageVO<HouseDetailVO>> searchList(SearchHouseListReqDTO searchHouseListReqDTO) {
+        BasePageVO<HouseDetailVO> result = new BasePageVO<>();
+        BasePageDTO<HouseDTO> searchDTO =  houseService.searchList(searchHouseListReqDTO);
+        result.setTotals(searchDTO.getTotals());
+        result.setTotalPages(searchDTO.getTotalPages());
+        result.setList(BeanCopyUtil.copyListProperties(searchDTO.getList(), HouseDetailVO::new));
+        return R.success(result);
     }
 }

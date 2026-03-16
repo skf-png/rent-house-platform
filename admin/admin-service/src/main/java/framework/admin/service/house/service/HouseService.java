@@ -1,6 +1,7 @@
 package framework.admin.service.house.service;
 
 
+import framework.admin.api.house.domain.DTO.SearchHouseListReqDTO;
 import framework.admin.service.house.domain.DTO.*;
 import framework.core.DTO.BasePageDTO;
 
@@ -20,4 +21,6 @@ public interface HouseService {
     void cacheHouse(Long id);
 
     void refreshHouseIds();
+
+    BasePageDTO<HouseDTO> searchList(SearchHouseListReqDTO searchHouseListReqDTO);
 }

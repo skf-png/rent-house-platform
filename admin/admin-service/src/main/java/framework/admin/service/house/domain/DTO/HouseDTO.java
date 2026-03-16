@@ -54,4 +54,16 @@ public class HouseDTO {
         BeanUtils.copyProperties(this, houseDetailVO);
         return houseDetailVO;
     }
+
+    /**
+     * 计算两地经纬度距离
+     *
+     * @param longitude
+     * @param latitude
+     * @return
+     */
+    public double calculateDistance(Double longitude, Double latitude) {
+        return Math.sqrt(Math.pow(this.longitude - longitude, 2) +
+                Math.pow(this.latitude - latitude, 2));
+    }
 }

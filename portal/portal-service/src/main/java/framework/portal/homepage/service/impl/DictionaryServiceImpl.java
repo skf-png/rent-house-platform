@@ -10,6 +10,7 @@ import framework.portal.homepage.service.DictionaryService;
 import framework.redis.service.RedisService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -70,6 +71,64 @@ public class DictionaryServiceImpl implements DictionaryService {
         return resultMap;
 
 
+    }
+
+    @Override
+    public Map<String, DictDataDTO> batchFindDictionaryData(List<String> dataKeys) {
+        Map<String, DictDataDTO> resultMap = new HashMap<>();
+
+        // 查缓存: dataKey:DictDataDTO
+        List<String> noCacheDataKeys = new ArrayList<>();
+        for (String dataKey : dataKeys) {
+            DictDataDTO dictDataDTO = getDataCache(dataKey);
+            if (null == dictDataDTO) {
+                noCacheDataKeys.add(dataKey);
+            } else {
+                resultMap.put(dataKey, dictDataDTO);
+            }
+        }
+
+        // 全部存在：返回
+        if (CollectionUtils.isEmpty(noCacheDataKeys)) {
+            return resultMap;
+        }
+
+        // 不存在：feign
+        List<DicDataDTO> dataDTOList = dictionaryFeignClient.getDicDataByKeys(noCacheDataKeys);
+        if (CollectionUtils.isEmpty(dataDTOList)) {
+            log.error("feign 字典数据不存在！noCacheDataKeys：{}", JsonUtils.ObjectToString(noCacheDataKeys));
+            return resultMap;
+        }
+
+        // 缓存结果
+        for (DicDataDTO dictionaryDataDTO :  dataDTOList) {
+            DictDataDTO dictDataDTO = new DictDataDTO();
+            BeanUtils.copyProperties(dictionaryDataDTO, dictDataDTO);
+            cacheData(dictionaryDataDTO.getDataKey(), dictDataDTO);
+            resultMap.put(dictionaryDataDTO.getDataKey(), dictDataDTO);
+        }
+        return resultMap;
+    }
+
+    private void cacheData(String dataKey, DictDataDTO dictDataDTO) {
+        if (StringUtils.isEmpty(dataKey)) {
+            return;
+        }
+
+        redisService.setCacheObject(DICT_DATA_PREFIX + dataKey,
+                JsonUtils.ObjectToString(dictDataDTO),
+                DICT_DATA_TIMEOUT, TimeUnit.MINUTES);
+    }
+
+    private DictDataDTO getDataCache(String dataKey) {
+        if (StringUtils.isEmpty(dataKey)) {
+            return null;
+        }
+        String str = redisService.getCacheObject(DICT_DATA_PREFIX + dataKey, String.class);
+        if (StringUtils.isBlank(str)) {
+            return null;
+        }
+        return JsonUtils.StringToObject(str, DictDataDTO.class);
     }
 
     private void cacheList(String type, List<DictDataDTO> copyListProperties) {

@@ -13,4 +13,11 @@ public interface DictionaryService {
      * @return key: type  value: dataList
      */
     Map<String, List<DictDataDTO>> batchFindDictionaryDataByTypes(List<String> types);
+    /**
+     * 根据字典数据keys获取字典数据
+     *
+     * @param dataKeys
+     * @return
+     */
+    Map<String, DictDataDTO> batchFindDictionaryData(List<String> dataKeys);
 }

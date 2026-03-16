@@ -1,5 +1,8 @@
 package framework.portal.homepage.service.impl;
 
+import framework.admin.api.house.domain.DTO.SearchHouseListReqDTO;
+import framework.admin.api.house.domain.VO.HouseDetailVO;
+import framework.admin.api.house.feign.HouseFeignClient;
 import framework.admin.api.map.domain.DTO.LocationReqDTO;
 import framework.admin.api.map.domain.DTO.PlaceSearchReqDTO;
 import framework.admin.api.map.domain.VO.RegionCityVo;
@@ -7,11 +10,15 @@ import framework.admin.api.map.feign.MapFeignClient;
 import framework.core.utils.BeanCopyUtil;
 import framework.domain.R;
 import framework.domain.ResultCode;
+import framework.domain.ServiceException;
+import framework.domain.domain.VO.BasePageVO;
 import framework.portal.homepage.domain.DTO.CityDescDTO;
 import framework.portal.homepage.domain.DTO.DictDataDTO;
+import framework.portal.homepage.domain.DTO.HouseListReqDTO;
 import framework.portal.homepage.domain.DTO.PullDataListReqDTO;
 import framework.portal.homepage.domain.VO.CityDescVO;
 import framework.portal.homepage.domain.VO.DictsVO;
+import framework.portal.homepage.domain.VO.HouseDescVO;
 import framework.portal.homepage.domain.VO.PullDataListVO;
 import framework.portal.homepage.service.DictionaryService;
 import framework.portal.homepage.service.HomePageService;
@@ -25,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -35,6 +43,8 @@ public class HomePageServiceImpl implements HomePageService {
     private DictionaryService dictionaryService;
     @Autowired
     private RegionService regionService;
+    @Autowired
+    private HouseFeignClient houseFeignClient;
 
     @Override
     public CityDescVO getCityDesc(Double lat, Double lng) {
@@ -85,5 +95,46 @@ public class HomePageServiceImpl implements HomePageService {
         pullDataListVO.setDictMap(dictMap);
 
         return pullDataListVO;
+    }
+
+    @Override
+    public BasePageVO<HouseDescVO> houseList(HouseListReqDTO reqDTO) {
+        // 1. 查询数据
+        SearchHouseListReqDTO searchHouseListReqDTO = new SearchHouseListReqDTO();
+        BeanCopyUtil.copyProperties(reqDTO, searchHouseListReqDTO);
+        R<BasePageVO<HouseDetailVO>> houseDatas = houseFeignClient.searchList(searchHouseListReqDTO);
+
+        if (houseDatas == null || houseDatas.getData() == null
+        ||  houseDatas.getCode() != ResultCode.SUCCESS.getCode()) {
+            log.error("房源查询错误");
+            throw new ServiceException("房源查询错误");
+        }
+
+        BasePageVO<HouseDescVO> basePageVO = new BasePageVO<>();
+        basePageVO.setTotals(houseDatas.getData().getTotals());
+        basePageVO.setTotalPages(houseDatas.getData().getTotalPages());
+        basePageVO.setList(convertHouseList(houseDatas.getData().getList()));
+
+        return basePageVO;
+    }
+
+    private List<HouseDescVO> convertHouseList(List<HouseDetailVO> list) {
+        //1. 构建datakeys
+        List<String> datakeys = list.stream().flatMap(houseDetailVO ->
+                        Stream.of(houseDetailVO.getRentType(),
+                                houseDetailVO.getPosition()))
+                .collect(Collectors.toList());
+
+        //2. 查询datakeys
+        Map<String, DictDataDTO> dicDataMap = dictionaryService.batchFindDictionaryData(datakeys);
+
+        List<HouseDescVO> res = list.stream().map(house -> {
+            HouseDescVO houseDescVO = new HouseDescVO();
+            BeanCopyUtil.copyProperties(house, houseDescVO);
+            houseDescVO.setRentType(dicDataMap.get(house.getRentType()).getValue());
+            houseDescVO.setPosition(dicDataMap.get(house.getPosition()).getValue());
+            return houseDescVO;
+        }).collect(Collectors.toList());
+        return res;
     }
 }

@@ -1,8 +1,11 @@
 package framework.portal.homepage.controller;
 
 import framework.domain.R;
+import framework.domain.domain.VO.BasePageVO;
+import framework.portal.homepage.domain.DTO.HouseListReqDTO;
 import framework.portal.homepage.domain.DTO.PullDataListReqDTO;
 import framework.portal.homepage.domain.VO.CityDescVO;
+import framework.portal.homepage.domain.VO.HouseDescVO;
 import framework.portal.homepage.domain.VO.PullDataListVO;
 import framework.portal.homepage.service.HomePageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,5 +33,14 @@ public class HomePageController {
     @PostMapping("/pull_list/get/nologin")
     public R<PullDataListVO> getPullData(@Validated @RequestBody PullDataListReqDTO pullDataListReqDTO) {
         return R.success(homePageService.getPullData(pullDataListReqDTO));
+    }
+
+    /**
+     * 查询房源列表
+     */
+    @PostMapping("/house_list/search/nologin")
+    public R<BasePageVO<HouseDescVO>> houseList( @RequestBody HouseListReqDTO reqDTO) {
+        System.out.println(reqDTO.toString());
+        return R.success(homePageService.houseList(reqDTO));
     }
 }
