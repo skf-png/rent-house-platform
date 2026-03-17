@@ -36,6 +36,7 @@ public class HouseController implements HouseFeignClient {
      * 查询房源详情（带缓存）
      */
     @GetMapping("/detail")
+    @Override
     public R<HouseDetailVO> detail(Long houseId) {
         HouseDTO houseDTO = houseService.detail(houseId);
         if (null == houseDTO) {

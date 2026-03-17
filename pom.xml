@@ -21,6 +21,8 @@
         <module>file</module>
         <module>admin</module>
         <module>portal</module>
+        <module>chat</module>
+        <module>chat/chat-service</module>
     </modules>
 
     <properties>
