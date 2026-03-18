@@ -7,6 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.util.CollectionUtils;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -143,20 +147,28 @@ public class GlobalExceptionHandler {
 
 
     /**
-     * 拦截运行时异常
-     *
-     * @param e 异常信息
-     * @param request 请求信息
-     * @param response 响应信息
-     * @return 响应结果
+     * 处理运行时异常
+     * @param e 运行时异常对象
+     * @param request WebFlux 响应式请求对象（替代 HttpServletRequest）
+     * @param response WebFlux 响应式响应对象（替代 HttpServletResponse）
+     * @return 统一响应结果（Mono 包装，符合 WebFlux 响应式规范）
      */
     @ExceptionHandler(RuntimeException.class)
-    public R<?> handleRuntimeException(RuntimeException e, HttpServletRequest request,
-                                       HttpServletResponse response) {
-        String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',发生运行时异常.", requestURI, e);
-        setResponseCode(response, ResultCode.ERROR.getCode());
-        return R.fail(ResultCode.ERROR.getCode(), ResultCode.ERROR.getMsg());
+    public Mono<R<?>> handleRuntimeException(RuntimeException e,
+                                             ServerHttpRequest request,
+                                             ServerHttpResponse response) {
+        // 设置响应状态码
+        response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
+
+        // 构建统一返回结果
+        R<?> result = R.fail(500, "服务器内部异常：" + e.getMessage());
+
+        // 打印异常日志（建议使用日志框架，如SLF4J）
+        System.err.println("[全局异常处理] 请求路径：" + request.getPath() +
+                "，异常信息：" + e.getMessage());
+
+        // WebFlux 必须返回 Mono/Flux 类型
+        return Mono.just(result);
     }
 
     /**
