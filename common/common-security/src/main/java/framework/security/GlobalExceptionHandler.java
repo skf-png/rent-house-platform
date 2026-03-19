@@ -146,30 +146,30 @@ public class GlobalExceptionHandler {
     }
 
 
-    /**
-     * 处理运行时异常
-     * @param e 运行时异常对象
-     * @param request WebFlux 响应式请求对象（替代 HttpServletRequest）
-     * @param response WebFlux 响应式响应对象（替代 HttpServletResponse）
-     * @return 统一响应结果（Mono 包装，符合 WebFlux 响应式规范）
-     */
-    @ExceptionHandler(RuntimeException.class)
-    public Mono<R<?>> handleRuntimeException(RuntimeException e,
-                                             ServerHttpRequest request,
-                                             ServerHttpResponse response) {
-        // 设置响应状态码
-        response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
-
-        // 构建统一返回结果
-        R<?> result = R.fail(500, "服务器内部异常：" + e.getMessage());
-
-        // 打印异常日志（建议使用日志框架，如SLF4J）
-        System.err.println("[全局异常处理] 请求路径：" + request.getPath() +
-                "，异常信息：" + e.getMessage());
-
-        // WebFlux 必须返回 Mono/Flux 类型
-        return Mono.just(result);
-    }
+//    /**
+//     * 处理运行时异常
+//     * @param e 运行时异常对象
+//     * @param request WebFlux 响应式请求对象（替代 HttpServletRequest）
+//     * @param response WebFlux 响应式响应对象（替代 HttpServletResponse）
+//     * @return 统一响应结果（Mono 包装，符合 WebFlux 响应式规范）
+//     */
+//    @ExceptionHandler(RuntimeException.class)
+//    public Mono<R<?>> handleRuntimeException(RuntimeException e,
+//                                             ServerHttpRequest request,
+//                                             ServerHttpResponse response) {
+//        // 设置响应状态码
+//        response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
+//
+//        // 构建统一返回结果
+//        R<?> result = R.fail(500, "服务器内部异常：" + e.getMessage());
+//
+//        // 打印异常日志（建议使用日志框架，如SLF4J）
+//        System.err.println("[全局异常处理] 请求路径：" + request.getPath() +
+//                "，异常信息：" + e.getMessage());
+//
+//        // WebFlux 必须返回 Mono/Flux 类型
+//        return Mono.just(result);
+//    }
 
     /**
      * 系统异常

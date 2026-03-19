@@ -53,7 +53,7 @@ public class ChatCacheService {
      * @param userId
      * @return
      */
-    private Set<Long> getUserSessionByCache(Long userId) {
+    public Set<Long> getUserSessionByCache(Long userId) {
         Set<Long> res = new HashSet<>();
         try  {
             String key = CHAT_ZSET_SESSION_PREFIX + userId;

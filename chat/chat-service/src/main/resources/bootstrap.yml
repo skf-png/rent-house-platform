@@ -29,3 +29,13 @@ spring:
 logging:
   pattern:
     console: '[%thread] %-5level %logger{36} - %msg%n'
+    framework.xxx.xxx.mapper: DEBUG
+
+
+# MyBatis-Plus 可选配置（非必须，但可优化输出格式）
+mybatis-plus:
+  configuration:
+    # 开启驼峰命名自动转换（默认开启，可省略）
+    map-underscore-to-camel-case: true
+    # 打印 SQL 时显示参数（配合 DEBUG 级别生效）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
