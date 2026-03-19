@@ -5,10 +5,7 @@ import feign.Client;
 import framework.admin.api.appuser.domain.DTO.AppUserDTO;
 import framework.admin.api.appuser.domain.VO.AppUserVo;
 import framework.admin.api.appuser.feign.AppUserFeignClient;
-import framework.chat.service.domain.DTO.SessionAddReqDTO;
-import framework.chat.service.domain.DTO.SessionGetReqDTO;
-import framework.chat.service.domain.DTO.SessionListReqDTO;
-import framework.chat.service.domain.DTO.SessionStatusDetailDTO;
+import framework.chat.service.domain.DTO.*;
 import framework.chat.service.domain.VO.MessageVO;
 import framework.chat.service.domain.VO.SessionAddResVO;
 import framework.chat.service.domain.VO.SessionGetResVO;
@@ -222,5 +219,30 @@ public class SessionServiceImpl implements SessionService {
                             sessionDTO.getToUser(loginUserId).getUser().convertToVO());
                     return sessionGetResVO;
                 }).collect(Collectors.toList());
+    }
+
+    @Override
+    public Boolean hasHouse(SessionHouseReqDTO sessionHouseReqDTO) {
+
+        // 校验参数
+        if (sessionHouseReqDTO == null || sessionHouseReqDTO.getHouseId() == null
+        || sessionHouseReqDTO.getSessionId() == null) {
+            return false;
+        }
+
+        // 获取缓存数据
+        SessionStatusDetailDTO sessionDetail = chatCacheService.getSessionDTOByCache(sessionHouseReqDTO.getSessionId());
+        if (sessionDetail == null) {
+            throw new ServiceException("会话id有误，不存在其会话信息！");
+        }
+
+        // 获取房源id
+        Set<Long> houseIds = sessionDetail.getHouseIds();
+        if (CollectionUtils.isEmpty(houseIds)) {
+            return false;
+        }
+
+        // 判断返回
+        return houseIds.contains(sessionHouseReqDTO.getHouseId());
     }
 }

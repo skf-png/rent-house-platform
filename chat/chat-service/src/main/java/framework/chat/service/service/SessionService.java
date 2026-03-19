@@ -2,6 +2,7 @@ package framework.chat.service.service;
 
 import framework.chat.service.domain.DTO.SessionAddReqDTO;
 import framework.chat.service.domain.DTO.SessionGetReqDTO;
+import framework.chat.service.domain.DTO.SessionHouseReqDTO;
 import framework.chat.service.domain.DTO.SessionListReqDTO;
 import framework.chat.service.domain.VO.SessionAddResVO;
 import framework.chat.service.domain.VO.SessionGetResVO;
@@ -30,4 +31,11 @@ public interface SessionService {
      * @return
      */
     List<SessionGetResVO> list(SessionListReqDTO sessionListReqDTO);
+
+    /**
+     * 查看会话下是否聊过某房源
+     * @param sessionHouseReqDTO
+     * @return
+     */
+    Boolean hasHouse(SessionHouseReqDTO sessionHouseReqDTO);
 }
