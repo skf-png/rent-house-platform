@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@SpringBootApplication(exclude = {RabbitAutoConfiguration.class })
+@SpringBootApplication
 @EnableFeignClients(basePackages = "framework.admin.**.feign")
 public class ChatServiceApplication {
     public static void main(String[] args) {

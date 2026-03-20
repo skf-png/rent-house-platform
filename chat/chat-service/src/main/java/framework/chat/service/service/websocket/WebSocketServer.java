@@ -2,9 +2,14 @@ package framework.chat.service.service.websocket;
 
 import framework.chat.service.config.ServerEncoder;
 import framework.chat.service.config.WebSocketConfig;
+import framework.chat.service.domain.DTO.MessageSendReqDTO;
 import framework.chat.service.domain.DTO.WebSocketDTO;
+import framework.chat.service.domain.enums.MessageStatusEnum;
 import framework.chat.service.domain.enums.MessageTypeEnum;
+import framework.chat.service.domain.enums.WebSocketDataTypeEnum;
 import framework.chat.service.domain.enums.WebSocketHeader;
+import framework.chat.service.service.SnowflakeIdService;
+import framework.chat.service.service.mq.MessageProduce;
 import framework.core.utils.JsonUtils;
 import framework.domain.ResultCode;
 import framework.domain.ServiceException;
@@ -32,6 +37,8 @@ public class WebSocketServer {
     private Session session;
     private Long userId;
     private TokenService tokenService;
+    private SnowflakeIdService snowflakeIdService;
+    private MessageProduce messageProduce;
 
     private static ApplicationContext applicationContext;
 
@@ -52,6 +59,8 @@ public class WebSocketServer {
         try {
             // 手动从 Spring 上下文获取 TokenService Bean
             this.tokenService = applicationContext.getBean(TokenService.class);
+            this.snowflakeIdService = applicationContext.getBean(SnowflakeIdService.class);
+            this.messageProduce = applicationContext.getBean(MessageProduce.class);
 
             //1. 获取token
             Map<String, Object> userProperties = session.getUserProperties();
@@ -106,10 +115,71 @@ public class WebSocketServer {
     }
 
     private <T> void handleMessage(String type, T message) {
-        // 1. 发送消息，先用来测试
-        if (type.equalsIgnoreCase(MessageTypeEnum.MESSAGE_TEXT.name())) {
-            sendMessage(new WebSocketDTO<>(type, message));
+        WebSocketDataTypeEnum typeEnum = WebSocketDataTypeEnum.getByType(type);
+        if (null == typeEnum) {
+            handleUnknownMessage(type);
+            return;
         }
+        switch (typeEnum) {
+            case TEXT :
+                // 处理文本消息(测试)
+                handleTextMessage((String)message);
+                break;
+            case HEART_BEAT:
+                // 处理心跳消息
+                handleHeartBeatMessage();
+                break;
+            case CHAT:
+                // 处理聊天消息
+                handleChatMessage((String)message);
+                break;
+            default:
+                // 处理未知消息
+                handleUnknownMessage(type);
+                break;
+        }
+    }
+
+    private void handleChatMessage(String s) {
+        try {
+            // 反序列化消息
+            MessageSendReqDTO sendMessage = JsonUtils.StringToObject(s, MessageSendReqDTO.class);
+            if (sendMessage == null) {
+                throw new ServiceException("聊天消息格式异常");
+            }
+            // 设置属性
+            sendMessage.setMessageId(snowflakeIdService.nextId());
+            sendMessage.setStatus(MessageStatusEnum.MESSAGE_UNREAD.getCode());
+            sendMessage.setVisited(MessageStatusEnum.MESSAGE_NOT_VISITED.getCode());
+
+            // 广播消息
+            messageProduce.sendMessage(sendMessage);
+
+        } catch (Exception e) {
+            log.error("信息处理错误！{}", s, e);
+        }
+    }
+
+    private void handleHeartBeatMessage() {
+        // 对应心跳消息来说，接收到谁的Ping 就返回给谁Pong
+        WebSocketDTO<String> webSocketDTO = new WebSocketDTO<>(
+                WebSocketDataTypeEnum.HEART_BEAT.getType(), "pong");
+        sendMessage(webSocketDTO);
+    }
+
+    private void handleTextMessage(String s) {
+        try {
+            Thread.sleep(3000);
+            String message = "服务端：" + s;
+            sendMessage(new WebSocketDTO<>(WebSocketDataTypeEnum.TEXT.getType(), message));
+        } catch (Exception e) {
+            log.error("处理文本消息异常！", e);
+        }
+
+    }
+
+    private void handleUnknownMessage(String type) {
+        log.error("未知的消息类型 type{}", type);
     }
 
     /**
@@ -125,6 +195,19 @@ public class WebSocketServer {
                     JsonUtils.ObjectToString(webSocketDTO), e);
         }
 
+    }
+
+    /**
+     * 给指定的用户推送消息
+     */
+    public static void sendMessage(Long userId, WebSocketDTO<?> webSocketDTO) {
+        // 不在自己服务器的就丢弃掉
+        if (!webSocketMap.containsKey(userId)) {
+            return;
+        }
+
+        webSocketMap.get(userId).sendMessage(webSocketDTO);
+        log.info("消息推送成功{}", webSocketDTO.toString());
     }
 
     @OnClose
