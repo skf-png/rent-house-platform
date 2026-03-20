@@ -56,11 +56,11 @@ public class ChatCacheService {
     public Set<Long> getUserSessionByCache(Long userId) {
         Set<Long> res = new HashSet<>();
         try  {
-            String key = CHAT_ZSET_SESSION_PREFIX + userId;
+            String key = CHAT_ZSET_USER_PREFIX  + userId;
             res= redisService.getCacheZSetDesc(key, new TypeReference<LinkedHashSet<Long>>() {});
 
             if (CollectionUtils.isEmpty(res)) {
-                return res;
+                return new HashSet<>();
             }
         } catch (Exception e) {
             log.error("从缓存中获取用户下的会话列表异常，userId:{}", userId, e);
