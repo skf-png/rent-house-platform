@@ -29,9 +29,9 @@ public class R<T> {
     public static <T> R<T> success(T data) {
         return construct(ResultCode.SUCCESS.getCode(), ResultCode.SUCCESS.getMsg(), data);
     }
-    public static <T> R<T> success(String msg) {
-        return construct(ResultCode.SUCCESS.getCode(), msg, null);
-    }
+//    public static <T> R<T> success(String msg) {
+//        return construct(ResultCode.SUCCESS.getCode(), msg, null);
+//    }
     public static <T> R<T> success(String msg, T data) {
         return construct(ResultCode.SUCCESS.getCode(), msg, data);
     }

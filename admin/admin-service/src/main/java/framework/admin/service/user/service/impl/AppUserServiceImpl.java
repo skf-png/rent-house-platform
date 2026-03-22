@@ -133,7 +133,7 @@ public class AppUserServiceImpl implements AppUserService {
         }
         //2. 构建更新类
         appUser.setNickName(userEditReqDTO.getNickName());
-        appUser.setAvatar(defaultAvatar);
+        appUser.setAvatar(userEditReqDTO.getAvtar());
         appUserMapper.updateById(appUser);
         //3. 发送广播信息
         AppUserDTO appUserDTO = new AppUserDTO();

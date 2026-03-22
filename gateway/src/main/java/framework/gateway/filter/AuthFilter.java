@@ -49,6 +49,7 @@ public class AuthFilter implements GlobalFilter, Ordered {
 
         // 2 获取请求路由
         String url = request.getURI().getPath();
+        log.info("请求url{}", url);
         if (StringUtil.matches(ignoreWhiteProperties.getWhites(), url)) {
             return chain.filter(exchange);
         }

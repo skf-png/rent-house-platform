@@ -218,16 +218,16 @@ public class HouseServiceImpl implements HouseService {
         if (houseListReqDTO.getHouseId() != null) {
             queryWrapper.eq(House::getId, houseListReqDTO.getHouseId());
         }
-        if (houseListReqDTO.getTitle() != null) {
+        if (StringUtils.isNotEmpty(houseListReqDTO.getTitle())) {
             queryWrapper.like(House::getTitle, houseListReqDTO.getTitle());
         }
         if (houseListReqDTO.getCityId() != null) {
             queryWrapper.eq(House::getCityId, houseListReqDTO.getCityId());
         }
-        if (houseListReqDTO.getRentType() != null) {
+        if (StringUtils.isNotEmpty(houseListReqDTO.getRentType())) {
             queryWrapper.eq(House::getRentType, houseListReqDTO.getRentType());
         }
-        if (houseListReqDTO.getCommunityName() != null) {
+        if (StringUtils.isNotEmpty(houseListReqDTO.getCommunityName())) {
             queryWrapper.like(House::getCommunityName, houseListReqDTO.getCommunityName());
         }
         //3. 查询结果

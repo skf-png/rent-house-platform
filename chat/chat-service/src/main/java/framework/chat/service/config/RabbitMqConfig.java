@@ -17,4 +17,10 @@ public class RabbitMqConfig {
         return new FanoutExchange(EXCHANGE_NAME, true, false);
     }
 
+    // 交换机的名称
+    public final static String EXCHANGE_NAME_EDIT = "edit_user_exchange";
+    @Bean(EXCHANGE_NAME_EDIT)
+    public FanoutExchange editUserExchange() {
+        return new FanoutExchange(EXCHANGE_NAME_EDIT, true, true);
+    }
 }
